@@ -1,0 +1,27 @@
+name: Runtime
+on: [push, pull_request]
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE_PROJECT_NAME: gateway-smoke
+      POSTGRES_PASSWORD: disposable-ci-db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv run --python 3.12 --locked pytest
+      - run: docker compose up --build -d
+      - name: Check migration, outage and recovery
+        shell: bash
+        run: |
+          url=http://127.0.0.1:8000/health
+          curl --retry 20 --retry-connrefused --retry-delay 1 -fsS "$url/ready"
+          docker compose stop db
+          curl -fsS "$url/live"
+          test "$(curl --max-time 6 -s -o /dev/null -w '%{http_code}' "$url/ready")" = 503
+          docker compose start db
+          curl --retry 20 --retry-delay 1 -fsS "$url/ready"
+          docker compose stop agentic-gateway-worker
+          docker compose logs agentic-gateway-worker | grep worker_stopped
+      - if: always()
+        run: docker compose down -v
