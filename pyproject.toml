@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentic-gateway"
+version = "0.1.0"
+description = "An LLM API gateway for agentic applications"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.34,<1",
+    "sqlalchemy>=2.0,<2.1",
+    "psycopg[binary]>=3.2,<4",
+    "alembic>=1.14,<2",
+    "httpx>=0.28,<1",
+    "beautifulsoup4>=4.12,<5",
+]
+
+[dependency-groups]
+dev = ["pytest>=8,<10"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+pythonpath = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentic_gateway"]
+
+[tool.uv]
+required-version = "==0.13.10"

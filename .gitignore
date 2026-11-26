@@ -1,0 +1,17 @@
+.venv/
+.venv-*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.uv-cache/
+.env
+.env.*
+!.env.example
+build/
+dist/
+*.egg-info/
+reports/
+# Generated only for the local HTTPS fake upstream; never publish private keys.
+tests/fixtures/tls/

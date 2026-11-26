@@ -1,0 +1,6 @@
+{
+  "r1": {"pages": [
+    [{"provider":"demo-provider","region":"global","base_url":"https://CATALOG-A.example:443/v1/","upstream_model":"alpha","task":"chat"}],
+    [{"provider":"demo-provider","region":"global","base_url":"https://catalog-a.example/v1","upstream_model":"alpha","task":"embedding"}]
+  ]}
+}

@@ -1,0 +1,18 @@
+{
+  "r1": {"pages": [
+    [{"provider":"demo-provider","region":"global","base_url":"https://catalog-a.example/v1","upstream_model":"alpha","task":"chat"}],
+    [{"provider":"demo-provider","region":"global","base_url":"https://catalog-a.example/v1","upstream_model":"beta","task":"chat"}]
+  ]},
+  "r2": {"pages": [
+    [{"provider":"demo-provider","region":"global","base_url":"https://catalog-a.example/v1","upstream_model":"alpha","task":"chat"}],
+    [{"provider":"demo-provider","region":"global","base_url":"https://catalog-a.example/v1","upstream_model":"beta","task":"chat"},{"provider":"demo-provider","region":"global","base_url":"https://catalog-a.example/v1","upstream_model":"gamma","task":"chat"}]
+  ]},
+  "r3": {"pages": [
+    [{"provider":"demo-provider","region":"global","base_url":"https://catalog-a.example/v1","upstream_model":"beta","task":"chat"}],
+    [{"provider":"demo-provider","region":"global","base_url":"https://catalog-a.example/v1","upstream_model":"gamma","task":"chat"}]
+  ]},
+  "last-page-timeout": {"fail_page":2,"pages": [
+    [{"provider":"demo-provider","region":"global","base_url":"https://catalog-a.example/v1","upstream_model":"delta-unpublished","task":"chat"}],
+    []
+  ]}
+}

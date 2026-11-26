@@ -1,0 +1,8 @@
+{
+  "github": {"owner":"example","repo":"metadata-catalog","path":"catalog.json","commit_sha":"1111111111111111111111111111111111111111","synthetic":true},
+  "records": [
+    {"offering":{"provider":"nvidia","region":"global","base_url":"https://integrate.api.nvidia.com/v1","upstream_model":"meta/llama-3.3-70b-instruct","task":"chat"},"catalog_scope":"hosted","pricing":"free"},
+    {"offering":{"provider":"nvidia","region":"global","base_url":"https://integrate.api.nvidia.com/v1","upstream_model":"other-prefix/llama-3.3-70b-instruct","task":"chat"},"catalog_scope":"hosted"},
+    {"offering":{"provider":"siliconflow","region":"cn","base_url":"https://api.siliconflow.cn/v1","upstream_model":"deepseek-ai/DeepSeek-V4-Flash","task":"chat"},"catalog_scope":"china","pricing":"free"}
+  ]
+}
