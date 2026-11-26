@@ -170,7 +170,7 @@ finally {
             $cleaned = $true
         }
         catch { if (-not $failure) { $failure = $_ }; Write-Host 'Test resource cleanup failed.' }
-        Remove-Item -LiteralPath $envFile
+        Remove-Item -LiteralPath $envFile -Force
     }
     $reportDir = Join-Path $repo 'reports/runtime'
     [IO.Directory]::CreateDirectory($reportDir) | Out-Null

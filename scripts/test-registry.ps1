@@ -44,7 +44,7 @@ finally {
         }
         if(Test-Path -LiteralPath $envFile) {
             try { Invoke-RegistryDocker -Command ($compose + @('down','--volumes','--remove-orphans','--timeout','10')) }
-            finally { Remove-Item -LiteralPath $envFile }
+            finally { Remove-Item -LiteralPath $envFile -Force }
         }
     }
     finally {

@@ -135,7 +135,7 @@ finally {
         if (Test-Path -LiteralPath $envFile) {
             try { Compose -Command @('down','--volumes','--remove-orphans','--timeout','10') | Write-Host; $cleaned=$true }
             catch { if (-not $failure) { $failure=$_ }; Write-Host 'Test cleanup failed' }
-            finally { Remove-Item -LiteralPath $envFile }
+            finally { Remove-Item -LiteralPath $envFile -Force }
         }
         $reportDir = Join-Path $repo 'reports/runtime'
         [IO.Directory]::CreateDirectory($reportDir) | Out-Null
