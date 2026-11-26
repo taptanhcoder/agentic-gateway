@@ -1,0 +1,7 @@
+# Store text consistently on Windows and Linux; containers use LF scripts.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary

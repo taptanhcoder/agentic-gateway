@@ -1,0 +1,69 @@
+name: agentic-gateway
+
+x-app: &app
+  image: ${GATEWAY_IMAGE:-agentic-gateway:dev}
+  build:
+    context: .
+    target: runtime
+  environment:
+    DB_HOST: db
+    DB_PORT: "5432"
+    POSTGRES_DB: ${POSTGRES_DB:-agentic_gateway}
+    POSTGRES_USER: ${POSTGRES_USER:-gateway}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    OPERATOR_API_KEY: ${OPERATOR_API_KEY:-}
+    SILICONFLOW_CN_CATALOG_API_KEY: ${SILICONFLOW_CN_CATALOG_API_KEY:-}
+    SCHEDULER_POLL_SECONDS: ${SCHEDULER_POLL_SECONDS:-2}
+    NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-agentic_gateway}
+      POSTGRES_USER: ${POSTGRES_USER:-gateway}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  migrate:
+    <<: *app
+    command: ["sh", "-c", "alembic -c /app/alembic.ini upgrade head && python -m agentic_gateway.catalog.seed"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  agentic-gateway-api:
+    <<: *app
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    stop_grace_period: 10s
+
+  agentic-gateway-worker:
+    <<: *app
+    command: ["python", "-m", "agentic_gateway.worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    stop_grace_period: 10s
+
+  agentic-gateway-scheduler:
+    <<: *app
+    command: ["python", "-m", "agentic_gateway.scheduler"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    stop_grace_period: 10s
+
+volumes:
+  postgres_data:

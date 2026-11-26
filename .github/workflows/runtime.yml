@@ -1,0 +1,46 @@
+name: Runtime foundation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build test image and run pytest
+        run: |
+          docker build --target test -t agentic-gateway:test .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          docker run --rm agentic-gateway:test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build runtime image and verify installed package
+        run: |
+          docker build -t agentic-gateway:dev .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          docker run --rm --workdir /tmp agentic-gateway:dev python -c "import os, sys, agentic_gateway; assert sys.version_info[:2] == (3, 12); assert os.getuid() != 0; assert '/site-packages/' in agentic_gateway.__file__; print(sys.version); print(agentic_gateway.__file__)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Isolated PostgreSQL Compose smoke
+        run: ./scripts/smoke.ps1
+      - name: Source Registry PostgreSQL integration tests
+        run: ./scripts/test-registry.ps1
+      - name: Catalog API and scheduler Compose smoke
+        run: ./scripts/smoke-catalog.ps1
+      - name: Upload smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-smoke
+          path: |
+            reports/runtime/*.json
+            reports/runtime/*.xml
+          if-no-files-found: ignore
