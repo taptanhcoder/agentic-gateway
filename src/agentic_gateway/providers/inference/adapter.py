@@ -75,7 +75,7 @@ def safe_identifier(value, secret, inputs):
     return value
 
 
-async def invoke(target: Target, input: TextInput, deadline: float, *, _transport=None):
+async def invoke(target: Target, input: TextInput, deadline: float, *, _transport=None, _fixture_credential=None):
     """deadline is absolute time.monotonic(). _transport is test-only dependency injection.
 
     send_started is a conservative client-side boundary, not proof of receipt,
@@ -102,7 +102,9 @@ async def invoke(target: Target, input: TextInput, deadline: float, *, _transpor
         return result("invalid_input", "not_sent")
     if not isinstance(deadline,(int,float)) or not math.isfinite(deadline) or deadline <= start:
         return result("deadline_expired", "not_sent")
-    secret = os.getenv(target.secret_env, "")
+    if _fixture_credential is not None and (target.mode != "fixture" or _transport is None):
+        return result("invalid_target", "not_sent")
+    secret = _fixture_credential if _fixture_credential is not None else os.getenv(target.secret_env, "")
     if not secret:
         return result("credential_missing", "not_sent")
     if not re.fullmatch(r"[!-~]+", secret):

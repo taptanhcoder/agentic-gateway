@@ -1,6 +1,16 @@
 # agentic-gateway
 An LLM API gateway that discovers providers from GitHub and public catalogs, validates endpoints, and gives agents a single OpenAI Responses-compatible API with per-agent keys, quota tracking, and automatic failover.
 
+## Operator Portal
+
+The implemented Portal runs at `http://127.0.0.1:3000` via `docker compose up --build -d`.
+Sign in with the existing `OPERATOR_API_KEY`. The frontend/BFF uses an HttpOnly session
+and reads real source/catalog/deployment/qualification/route/attempt data. See
+[docs/PORTAL.md](docs/PORTAL.md) for setup, security boundaries and verification.
+The introductory gateway capabilities above describe the project target; public agent
+inference, agent keys, quotas and failover are not implemented yet. Their Portal screens
+show explicit unavailable states instead of synthetic operational data.
+
 ## Step 1.1: package and container
 
 Run these commands in PowerShell from this project directory. Docker Desktop
@@ -245,6 +255,14 @@ deployment generations, the NVIDIA HTTPX adapter, explicit operator probe CLI,
 error/usage semantics and counted HTTPS fixture tests. A live probe requires a
 current officially confirmed offering and operator-supplied `NVIDIA_API_KEY`.
 No live deployment success is implied by passing offline tests.
+
+## Step 5: qualification and pinned model publication
+
+[docs/QUALIFICATION.md](docs/QUALIFICATION.md) describes the versioned text
+profile, bounded worker probes, per-case evidence, live-only publication and
+compare-and-swap route snapshots. The same eligibility checks apply to route
+reads and rollback. Fixture success cannot publish a live route. Live execution
+requires both provider credentials and an explicit account budget.
 
 ## Git workflow for this personal project
 

@@ -18,7 +18,7 @@ sources = table("sources", [("id", S), ("fixture_name", S), ("enabled", sa.Boole
 jobs = table("jobs", [("id", S), ("source_id", S), ("revision", S), ("generation", I),
     ("status", S), ("fencing_token", I), ("lease_until", T), ("sync_run_id", S),
     ("error_code", S), ("pages_read", sa.Integer), ("created_at", T), ("finished_at", T),
-    ("trigger_kind", S), ("scheduled_for", T)])
+    ("trigger_kind", S), ("scheduled_for", T), ("kind", S), ("qualification_run_id", S)])
 runs = table("sync_runs", [("id", S), ("job_id", S), ("fencing_token", I), ("status", S),
     ("pages_read", sa.Integer), ("total_pages", sa.Integer), ("error_code", S),
     ("diff", JSONB), ("started_at", T), ("finished_at", T), ("fetch_metadata", JSONB)])

@@ -16,3 +16,6 @@ dist
 reports
 .github
 tests/fixtures/tls
+**/node_modules
+demos
+frontend

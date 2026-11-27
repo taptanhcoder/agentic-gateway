@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from .config import Settings
 from .database import make_engine
 from .catalog.sync import claim_job, process_job, log
+from .qualification.service import QualificationClaim, process as process_qualification
 
 
 def main() -> None:
@@ -27,7 +28,10 @@ def main() -> None:
             try:
                 claim = claim_job(engine, lease_seconds)
                 if claim:
-                    process_job(engine, claim, stopped, lease_seconds)
+                    if isinstance(claim, QualificationClaim):
+                        process_qualification(engine, claim, stopped, lease_seconds)
+                    else:
+                        process_job(engine, claim, stopped, lease_seconds)
                 else:
                     stopped.wait(0.5)
             except SQLAlchemyError:

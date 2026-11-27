@@ -15,8 +15,33 @@ x-app: &app
     SILICONFLOW_CN_CATALOG_API_KEY: ${SILICONFLOW_CN_CATALOG_API_KEY:-}
     SCHEDULER_POLL_SECONDS: ${SCHEDULER_POLL_SECONDS:-2}
     NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+    QUALIFICATION_LIVE_MAX_PROBES: ${QUALIFICATION_LIVE_MAX_PROBES:-0}
+    QUALIFICATION_LIVE_ACCOUNT_ID: ${QUALIFICATION_LIVE_ACCOUNT_ID:-}
+    QUALIFICATION_LIVE_ACK_ACCOUNT_TERMS: ${QUALIFICATION_LIVE_ACK_ACCOUNT_TERMS:-0}
 
 services:
+  agentic-gateway-portal:
+    image: agentic-gateway-portal:dev
+    build:
+      context: ./frontend
+    environment:
+      GATEWAY_API_URL: http://agentic-gateway-api:8000
+      OPERATOR_API_KEY: ${OPERATOR_API_KEY:-}
+      PORTAL_COOKIE_SECURE: ${PORTAL_COOKIE_SECURE:-0}
+    ports:
+      - "127.0.0.1:${PORTAL_PORT:-3000}:3000"
+    depends_on:
+      agentic-gateway-api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/portal-api/session').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
   db:
     image: postgres:16
     environment:

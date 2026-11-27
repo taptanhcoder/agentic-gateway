@@ -9,9 +9,9 @@ from agentic_gateway.catalog.reconciliation import offering_evidence
 from .adapter import ADAPTER_VERSION, CONTRACT_LOCATOR, ENDPOINT, SUPPORTED_MODELS, Target, invoke
 
 metadata = MetaData()
-accounts = Table("upstream_accounts",metadata,Column("id",Text),Column("provider",Text),Column("label",Text))
+accounts = Table("upstream_accounts",metadata,Column("id",Text),Column("provider",Text),Column("label",Text),Column("enabled",Boolean))
 secrets = Table("secret_refs",metadata,Column("id",Text),Column("env_name",Text))
-deployments = Table("deployments",metadata,Column("id",Text),Column("generation",BigInteger),Column("enabled",Boolean))
+deployments = Table("deployments",metadata,Column("id",Text),Column("generation",BigInteger),Column("enabled",Boolean),Column("qualification_epoch",BigInteger))
 versions = Table("deployment_versions",metadata,*[Column(name,Text) for name in (
     "deployment_id","offering_id","account_id","secret_ref_id","provider","endpoint","upstream_model","region","adapter_version")],
     Column("generation",BigInteger),Column("evidence",JSONB),Column("created_at",DateTime(timezone=True)))
@@ -94,8 +94,12 @@ def resolve(engine, deployment_id, *, _fixture=False):
 
 def set_enabled(engine,deployment_id,enabled):
     with engine.begin() as connection:
-        if not connection.execute(update(deployments).where(deployments.c.id==deployment_id).values(enabled=enabled)).rowcount:
+        current = connection.execute(select(deployments).where(deployments.c.id==deployment_id).with_for_update()).mappings().one_or_none()
+        if current is None:
             raise DeploymentError("deployment_not_found")
+        if current["enabled"] != enabled:
+            connection.execute(update(deployments).where(deployments.c.id==deployment_id).values(
+                enabled=enabled, qualification_epoch=current["qualification_epoch"]+1))
 
 
 def persisted_report(report):

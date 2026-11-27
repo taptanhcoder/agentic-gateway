@@ -1,0 +1,25 @@
+/* Bespoke restrained pixel details inspired by 8bitcn / NES.css component anatomy.
+   No external runtime, no background animation, no effects over report text. */
+:root{--pixel-unit:2px;--pixel-time:180ms;--pixel-ease:steps(4,end)}
+.app.operations.gateway .button-primary,.dialog-content .button-primary{position:relative;isolation:isolate;border:3px solid transparent;border-radius:0;background-clip:padding-box;border-image-source:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M4 1H12V3H14V5H15V11H14V13H12V15H4V13H2V11H1V5H2V3H4Z' fill='none' stroke='%23ffbf00' stroke-width='2' shape-rendering='crispEdges'/%3E%3C/svg%3E");border-image-slice:4;border-image-width:3px;border-image-repeat:stretch;box-shadow:inset 0 -2px 0 #17171720;transition:background-color var(--pixel-time) var(--pixel-ease),box-shadow 80ms steps(1,end)}
+.app.operations.gateway .button-primary:hover:not(:disabled){transform:none;box-shadow:inset 0 -2px 0 #17171725}
+.app.operations.gateway .button-primary:active:not(:disabled),.dialog-content .button-primary:active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 2px 0 #17171720}
+.app.operations.gateway .button-primary:after,.dialog-content .button-primary:after{content:'';position:absolute;right:7px;top:5px;width:2px;height:2px;background:#fff;box-shadow:-3px 0 0 #fff9,3px 0 0 #fff9,0 -3px 0 #fff9,0 3px 0 #fff9;opacity:0;pointer-events:none}
+.app.operations.gateway .button-primary:hover:not(:disabled):after,.dialog-content .button-primary:hover:not(:disabled):after{animation:pixel-glint 480ms steps(4,end) 1}
+.app.operations.gateway .button-primary:disabled,.dialog-content .button-primary:disabled{box-shadow:none;transform:none}
+.app.operations.gateway .catalog-card{position:relative;isolation:isolate;transition:border-color 160ms ease;transform:none}
+.app.operations.gateway .catalog-card:before{display:none}
+.app.operations.gateway .catalog-card:after{content:'';position:absolute;inset:-1px;z-index:1;pointer-events:none;opacity:0;background:linear-gradient(var(--amber),var(--amber)) 8px 0/12px 2px no-repeat,linear-gradient(var(--amber),var(--amber)) 4px 2px/4px 2px no-repeat,linear-gradient(var(--amber),var(--amber)) 2px 4px/2px 4px no-repeat,linear-gradient(var(--amber),var(--amber)) 0 8px/2px 12px no-repeat,linear-gradient(var(--amber),var(--amber)) right 8px bottom 0/12px 2px no-repeat,linear-gradient(var(--amber),var(--amber)) right 4px bottom 2px/4px 2px no-repeat,linear-gradient(var(--amber),var(--amber)) right 2px bottom 4px/2px 4px no-repeat,linear-gradient(var(--amber),var(--amber)) right 0 bottom 8px/2px 12px no-repeat;transition:opacity var(--pixel-time) steps(3,end)}
+.app.operations.gateway .catalog-card:hover,.app.operations.gateway .catalog-card:focus-within{border-color:var(--line);box-shadow:none}
+.app.operations.gateway .catalog-card:hover:after,.app.operations.gateway .catalog-card:focus-within:after{opacity:1}
+.app.operations.gateway .nav-item.active{position:relative;padding-right:22px}
+.app.operations.gateway .nav-item.active:after{content:'';position:absolute;right:9px;top:calc(50% - 2px);width:3px;height:3px;background:var(--amber);box-shadow:4px -4px 0 var(--amber),4px 4px 0 var(--amber);pointer-events:none;opacity:.85}
+.app.operations.gateway.collapsed .nav-item.active:after{display:none}
+.pixel-loader{display:inline-flex;align-items:center;gap:4px;height:17px;vertical-align:middle;flex-shrink:0}
+.pixel-loader>i{display:block;width:4px;height:4px;background:var(--amber);opacity:.25;animation:pixel-loading 900ms steps(1,end) infinite}
+.pixel-loader>i:nth-child(2){animation-delay:150ms}.pixel-loader>i:nth-child(3){animation-delay:300ms}
+@keyframes pixel-glint{0%{opacity:0}25%{opacity:.7}60%{opacity:.3}100%{opacity:0}}
+@keyframes pixel-loading{0%,55%,100%{opacity:.25}10%,40%{opacity:1}}
+@media(hover:none){.app.operations.gateway .catalog-card:hover:after{opacity:0}.app.operations.gateway .button-primary:hover:after{animation:none}}
+@media(prefers-reduced-motion:reduce){.app.operations.gateway *,.app.operations.gateway *:before,.app.operations.gateway *:after,.dialog-content *,.dialog-content *:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.app.operations.gateway .button-primary:active,.dialog-content .button-primary:active{transform:none!important}.pixel-loader>i{opacity:.6}}
+@media(forced-colors:active){.app.operations.gateway .catalog-card:after,.app.operations.gateway .nav-item.active:after,.brand-pixel-cluster{display:none}.app.operations.gateway .button-primary,.dialog-content .button-primary{border:2px solid ButtonText;border-image:none;box-shadow:none}.app.operations.gateway .nav-item.active{outline:1px solid Highlight}}

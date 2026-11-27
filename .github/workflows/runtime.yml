@@ -35,6 +35,11 @@ jobs:
         run: ./scripts/test-registry.ps1
       - name: Catalog API and scheduler Compose smoke
         run: ./scripts/smoke-catalog.ps1
+      - name: Build Portal and run isolated HTTP integration smoke
+        run: |
+          docker compose build agentic-gateway-portal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./scripts/smoke-portal.ps1
       - name: Upload smoke evidence
         if: always()
         uses: actions/upload-artifact@v4

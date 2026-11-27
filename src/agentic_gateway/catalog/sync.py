@@ -56,6 +56,9 @@ def claim_job(engine, lease_seconds=30):
             .with_for_update(skip_locked=True)).mappings().one_or_none()
         if job is None:
             return None
+        if job["kind"] == "qualification":
+            from agentic_gateway.qualification.service import claim_locked
+            return claim_locked(connection, job, lease_seconds)
         if job["sync_run_id"]:
             connection.execute(update(runs).where(runs.c.id == job["sync_run_id"], runs.c.status == "running")
                 .values(status="abandoned", error_code="lease_expired", finished_at=func.clock_timestamp()))

@@ -8,6 +8,9 @@ from fastapi.responses import JSONResponse
 from .config import Settings
 from .database import is_ready, make_engine, migration_heads
 from .catalog.admin import router as admin_router
+from .qualification.admin import router as qualification_router
+from .portal.admin import router as portal_router
+from .portal.reports import router as reports_router
 
 
 def create_app() -> FastAPI:
@@ -23,6 +26,9 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="AgenticGateway", lifespan=lifespan)
     app.include_router(admin_router)
+    app.include_router(qualification_router)
+    app.include_router(reports_router)
+    app.include_router(portal_router)
 
     @app.get("/health/live")
     def live():

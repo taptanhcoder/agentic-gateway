@@ -15,3 +15,5 @@ dist/
 reports/
 # Generated only for the local HTTPS fake upstream; never publish private keys.
 tests/fixtures/tls/
+**/node_modules/
+**/*.log
