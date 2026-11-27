@@ -1,23 +1,50 @@
-# agentic-gateway
-An LLM API gateway that discovers providers from GitHub and public catalogs, validates endpoints, and gives agents a single OpenAI Responses-compatible API with per-agent keys, quota tracking, and automatic failover.
+# Agentic Gateway
 
-## Operator Portal
+An LLM gateway project with an implemented operator control plane for catalog discovery, provider evidence, deployment configuration, qualification and pinned-route publication.
 
-The implemented Portal runs at `http://127.0.0.1:3000` via `docker compose up --build -d`.
-Sign in with the existing `OPERATOR_API_KEY`. The frontend/BFF uses an HttpOnly session
-and reads real source/catalog/deployment/qualification/route/attempt data. See
-[docs/PORTAL.md](docs/PORTAL.md) for setup, security boundaries and verification.
-The introductory gateway capabilities above describe the project target; public agent
-inference, agent keys, quotas and failover are not implemented yet. Their Portal screens
-show explicit unavailable states instead of synthetic operational data.
+**Current scope:** the backend and Portal manage and inspect gateway resources. Public agent inference, agent registration, virtual keys, billing and automatic failover are **not implemented yet**. Publishing an alias does not make it available through a public inference endpoint.
 
-## Step 1.1: package and container
+The current source is maintained on [dev](https://github.com/taptanhcoder/agentic-gateway/tree/dev). Package version: **0.1.0**.
 
-Run these commands in PowerShell from this project directory. Docker Desktop
-must be running with Linux containers. Python and uv run inside containers;
-neither needs to be installed on Windows.
+## Implemented capabilities
 
-Check the engine (the last command must print `linux`):
+- **Source operations:** durable catalog sync jobs, leases, heartbeats, fencing and opt-in schedules. A failed sync preserves the last published snapshot.
+- **Catalog and evidence:** current model offerings, source provenance, field-level evidence and conflict visibility. NVIDIA hosted and SiliconFlow China have catalog/evidence connectors; packaged fixtures support offline development.
+- **Deployment targets:** upstream account records, environment-based secret references, immutable deployment generations and revocation epochs.
+- **Inference adapter:** a bounded, single-send NVIDIA chat adapter for `meta/llama-3.3-70b-instruct`, invoked through explicit operator probes or qualification. No automatic retry.
+- **Qualification:** durable worker runs, per-case observations and versioned text-policy verdicts. Fixture and live observations remain distinct.
+- **Publication:** live-verdict gates, compare-and-swap route versions, immutable route snapshots and guarded rollback.
+- **Operator Portal:** real PostgreSQL-backed source, model, deployment, qualification, route, job and attempt views; Model Square cards; provider reports; daily charts and resource diagrams.
+
+The Portal also retains navigation for planned features. Unimplemented capabilities show unavailable states rather than simulated operational data. The standalone previews under `demos/` use illustrative data and are separate from the operational Portal.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser["Operator browser"] --> BFF["Portal / session BFF · :3000"]
+    BFF --> API["FastAPI admin API · :8000"]
+    API --> DB[("PostgreSQL · internal")]
+    Scheduler["Scheduler"] --> DB
+    Worker["Worker"] <--> DB
+    Worker --> Catalog["Catalog metadata / documentation"]
+    Worker -. "explicitly authorized live qualification" .-> Provider["NVIDIA inference"]
+    CLI["Operator probe CLI"] -. "explicit live probe" .-> Provider
+    CLI --> DB
+```
+
+- **Backend:** Python 3.12, FastAPI, SQLAlchemy, PostgreSQL 16, Alembic and HTTPX.
+- **Frontend:** React 19, TypeScript, Vite, Radix/shadcn-style primitives and Lucide icons.
+- **BFF:** Node.js 22; the browser uses an eight-hour HttpOnly, SameSite=Strict session. The operator Bearer credential stays on the server after sign-in.
+- **Runtime:** Docker Compose. Python dependencies are locked in `uv.lock` and installed as a non-editable package. Frontend dependencies use `frontend/package-lock.json`.
+
+Catalog discovery is not proof of live inference readiness, verified pricing or account quota. Fixture qualification cannot authorize live publication.
+
+## Quick start: Windows / PowerShell
+
+Use **PowerShell 7** and **Docker Desktop with Linux containers**. Docker runs Python, PostgreSQL and the Portal; host Python, uv and Node.js are not required for this workflow.
+
+### 1. Check Docker
 
 ```powershell
 docker version
@@ -25,253 +52,221 @@ docker compose version
 docker info --format '{{.OSType}}'
 ```
 
-Generate or update the lockfile using the same uv version pinned in the
-Dockerfile and `pyproject.toml`. Only this lock-generation command mounts the
-project directory:
+The last command must return `linux`.
+
+### 2. Create local configuration
+
+Run from the repository root. This creates random local database and operator credentials without printing them. An existing `.env` is preserved.
 
 ```powershell
-docker run --rm --mount "type=bind,source=$($PWD.Path),target=/workspace" --workdir /workspace ghcr.io/astral-sh/uv:0.13.10-python3.12-trixie-slim uv lock --python /usr/local/bin/python --no-python-downloads --no-cache --default-index https://pypi.org/simple
-```
-
-Build and verify the installed package from `/tmp`, without a source mount:
-
-```powershell
-docker build -t agentic-gateway:dev .
-docker run --rm --workdir /tmp agentic-gateway:dev python -c "import sys, agentic_gateway, fastapi, uvicorn; assert sys.version_info[:2] == (3, 12); print(sys.version); print(agentic_gateway.__file__)"
-```
-
-The build installs the project as a non-editable package in `/app/.venv` using
-`uv sync --locked`. The container runs as UID/GID 10001. A successful check
-prints Python `3.12.x` and a package path under
-`/app/.venv/lib/python3.12/site-packages/agentic_gateway/`.
-
-## Runtime foundation on Windows
-
-Use PowerShell 7 in this directory and Docker Desktop with Linux containers.
-All Python, uv, pytest, PostgreSQL and Alembic commands run inside containers.
-There is no host Python/PostgreSQL installation requirement.
-
-Create `.env` only if it does not exist. This generates a random local password
-without displaying it, preserving any existing configuration:
-
-```powershell
-if (-not (Test-Path .env)) {
-    $dbPassword = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(24))
-    $template = Get-Content .env.example -Raw
-    [IO.File]::WriteAllText((Join-Path $PWD '.env'), $template.Replace('replace-with-a-local-random-password', $dbPassword))
+if (-not (Test-Path -LiteralPath .env)) {
+    $gatewayDbPassword = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(24))
+    $gatewayOperatorKey = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+    $gatewayTemplate = Get-Content -LiteralPath .env.example -Raw
+    $gatewayConfig = $gatewayTemplate.Replace('replace-with-a-local-random-password', $gatewayDbPassword).Replace('replace-with-a-local-random-operator-key', $gatewayOperatorKey)
+    [IO.File]::WriteAllText((Join-Path $PWD '.env'), $gatewayConfig)
 }
+```
+
+If `.env` already exists, verify its values before starting. Do not leave either `replace-with-...` placeholder in use. Keep `OPERATOR_API_KEY` separate from provider credentials; there is no built-in default login password.
+
+Important settings in [.env.example](.env.example):
+
+- `POSTGRES_PASSWORD`, `POSTGRES_USER`, `POSTGRES_DB`: database configuration.
+- `OPERATOR_API_KEY`: operator login and authenticated admin API access.
+- `PORTAL_PORT=3000`, `GATEWAY_PORT=8000`: loopback host ports.
+- `PORTAL_COOKIE_SECURE=0`: local HTTP; use `1` when serving the Portal over HTTPS.
+- `NVIDIA_API_KEY`: optional upstream inference credential, resolved only when needed.
+- `SILICONFLOW_CN_CATALOG_API_KEY`: optional catalog credential.
+- `QUALIFICATION_LIVE_MAX_PROBES=0`: live qualification is disabled by default.
+- `SCHEDULER_POLL_SECONDS=2`: scheduler polling interval; source schedules remain opt-in.
+
+Changing the database password in `.env` does not rotate the password inside an existing PostgreSQL volume.
+
+### 3. Build and start
+
+```powershell
 docker compose up --build -d
 docker compose ps -a
-```
 
-If port 8000 is occupied, edit `GATEWAY_PORT` in `.env` to a free port before
-starting. Do not stop unrelated containers. Only the API publishes a port, bound
-to `127.0.0.1`; PostgreSQL is reachable only inside the Compose network at `db`.
-Changing `POSTGRES_PASSWORD` after initial DB creation does not rotate the
-password stored in an existing volume.
-
-The default URL is `http://127.0.0.1:8000`. Use your configured port if different:
-
-```powershell
 curl.exe --max-time 10 -i http://127.0.0.1:8000/health/live
 curl.exe --max-time 10 -i http://127.0.0.1:8000/health/ready
-docker compose logs --tail 30 migrate agentic-gateway-api agentic-gateway-worker
 ```
 
-- `db`: PostgreSQL 16 with a healthcheck and project-scoped `postgres_data` volume.
-- `migrate`: runs `alembic upgrade head` after DB is healthy, then exits **0**.
-- API and worker: use the same runtime image and wait for migration success.
-- `/health/live`: `200 {"status":"live"}`, independent of database connectivity.
-- `/health/ready`: `200 {"status":"ready"}` only when DB revisions exactly match
-  the migration heads installed in the image. Otherwise `503 {"status":"not_ready"}`.
+Default local URLs:
 
-The baseline revision is `0001_baseline`. It establishes Alembic tracking only;
-there are no business tables. Migrations ship inside the installed Python
-package. API and Alembic share environment configuration. Readiness uses a
-2-second connection timeout, 2-second statement/lock timeouts, a 2-second pool
-checkout timeout and connection pre-ping; the API disposes its engine at shutdown.
-These are individual limits, not a single overall request deadline.
+- **Portal:** [http://127.0.0.1:3000](http://127.0.0.1:3000).
+- **Model Square:** [open model cards](http://127.0.0.1:3000/?reportSection=models#providers).
+- **Provider operations:** [open provider reports](http://127.0.0.1:3000/?reportSection=providers#providers).
+- **API / OpenAPI:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
 
-Inspect or repeat migrations:
+Sign in to the Portal with your configured `OPERATOR_API_KEY`. Restarting the Portal invalidates its in-memory sessions and requires sign-in again.
+
+Both Portal and API ports are bound to `127.0.0.1`. PostgreSQL has no published host port. If a port is occupied, change `PORTAL_PORT` or `GATEWAY_PORT` instead of stopping unrelated services.
+
+A fresh database is migrated through `0006_qualifications` and seeded idempotently. Startup does not automatically sync every source, configure a deployment, qualify a live provider or publish an alias.
+
+### Compose services
+
+- `db`: PostgreSQL, healthcheck and persistent `postgres_data` volume.
+- `migrate`: applies Alembic migrations and seed data, then exits with code 0.
+- `agentic-gateway-api`: authenticated administration and public health endpoints.
+- `agentic-gateway-worker`: processes queued catalog and qualification jobs.
+- `agentic-gateway-scheduler`: enqueues due catalog schedules.
+- `agentic-gateway-portal`: compiled frontend and session BFF.
+
+Readiness requires database revisions to match the migration heads installed in the API image. `/health/live` is independent of database readiness.
+
+### Logs, upgrades and stopping
 
 ```powershell
+docker compose logs --tail 50 migrate agentic-gateway-api agentic-gateway-worker agentic-gateway-scheduler agentic-gateway-portal
 docker compose run --rm migrate alembic -c /app/alembic.ini current
-docker compose run --rm migrate
+
+# Rebuild after source changes; preserve the database volume.
+docker compose up --build -d
+
+# Stop services while retaining containers and data.
+docker compose stop
+
+# Start the existing stack again.
+docker compose up -d
+
+# Remove containers/network, retaining the named database volume.
+docker compose down
 ```
 
-Optional manual dependency outage test (only affects this development project):
+Do not add `--volumes` to development teardown unless you intend to delete the database.
+
+## Operating flow and safety boundaries
+
+1. **Discover:** register supported sources or sync an existing source. Official-source sync may read remote documentation/catalog metadata.
+2. **Inspect evidence:** verify exact provider, model, task, region and endpoint associations in current snapshots.
+3. **Configure:** create a supported deployment using an account and a secret reference. Provider secret values are not stored in deployment records.
+4. **Qualify:** run the text profile against a fixed deployment generation. The Portal exposes **fixture qualification only**; its BFF rejects live qualification.
+5. **Publish:** use an eligible, unexpired **live** verdict with the expected route version. Reads and rollback recheck current generation, account, policy and revocation state.
+6. **Observe:** inspect jobs, case results, sanitized attempts, provider reports and historical route snapshots.
+
+The current text profile permits at most two probes with up to 16 output tokens per probe. Live qualification additionally requires official evidence, credentials and explicit account/budget configuration. It is not enabled by setting a key alone. See [Qualification](docs/QUALIFICATION.md) before any live run.
+
+Reports aggregate persisted qualification/CLI attempts, **not client API traffic**:
+
+- Provider, mode and UTC time-window filters apply to observations; current inventory remains current inventory.
+- Tokens come only from upstream-reported usage. Missing usage is unknown, not measured zero.
+- Latency means adapter elapsed time, not time to first token or provider-only latency.
+- Pricing, spend, uptime and TPS remain unknown unless the corresponding verified data exists.
+- Reading a report does not call a provider.
+
+The Portal is a **single-operator local control plane**, not per-user RBAC. Its BFF uses an allowlist, same-origin JSON writes and bounded requests. Keep `.env` private. Public hosting needs deployment-specific identity, TLS and network configuration.
+
+## API entry points
+
+Public health:
+
+- `GET /health/live`
+- `GET /health/ready`
+
+All `/admin/*` endpoints require `Authorization: Bearer <OPERATOR_API_KEY>`:
+
+- **Sources:** `GET/POST /admin/sources`; `POST /admin/sources/{source_id}/sync`; `PUT /admin/sources/{source_id}/schedule`.
+- **Evidence:** `GET /admin/offerings`; `GET /admin/offerings/{offering_id}/evidence`.
+- **Jobs/history:** `GET /admin/jobs/{job_id}`; `GET /admin/sync-runs/{run_id}`.
+- **Deployments:** `POST /admin/portal/deployments`; `PUT /admin/portal/deployment-state/{deployment_id}`.
+- **Qualification:** `POST /admin/qualifications`; `GET /admin/qualifications/{run_id}`.
+- **Routes:** `POST /admin/pinned-models`; `GET /admin/pinned-models/{model_id}`; `POST /admin/pinned-models/{model_id}/rollback`; `GET /admin/route-snapshots/{snapshot_id}`.
+- **Portal reads:** `GET /admin/portal/summary`; paginated `/admin/portal/{deployments|accounts|qualifications|routes|attempts|jobs}`.
+- **Reports:** `GET /admin/portal/reports?days=7&mode=all`, optionally filtered by `provider`.
+
+Use OpenAPI for request schemas and the linked module documentation for operational examples. Slash-containing identifiers must be encoded appropriately by the client.
+
+## Portal development and design
+
+The operational frontend lives in `frontend/`. The default model catalog uses cards with a table option; provider operations and detailed reports remain separate.
+
+- Neutral **Light / Dark / System** themes with saved preference.
+- Amber `#FFBF00` accents and the original octopus logo.
+- Restrained pixel button borders, card hover/focus brackets and actual-loading indicators.
+- Reduced-motion support; ordinary tables, forms and report text retain readable typography.
+- Unsupported agents, keys, billing and governance screens state their backend limits.
+
+For frontend development, install Node.js 22 and run:
 
 ```powershell
-docker compose stop db
-curl.exe --max-time 10 -i http://127.0.0.1:8000/health/live
-curl.exe --max-time 10 -i http://127.0.0.1:8000/health/ready
-docker compose start db
-# Retry readiness after DB becomes healthy; the API needs no restart.
-curl.exe --max-time 10 -i http://127.0.0.1:8000/health/ready
+cd frontend
+npm ci
+npm test
+npm run build
+npm run dev
 ```
 
-### Tests and isolated Compose smoke
+Vite proxies `/portal-api` to the Portal BFF at port 3000; keep the Docker Portal/API running for real data. Use the Local URL printed by Vite. If the BFF uses a different port, update the Vite proxy configuration.
+
+The isolated demos under `demos/portal/` and `demos/portal-v2/` are design references, not alternate production entry points.
+
+## Tests and verification
+
+Backend unit tests, without host Python:
 
 ```powershell
 docker build --target test -t agentic-gateway:test .
 docker run --rm agentic-gateway:test
-docker build -t agentic-gateway:dev .
-./scripts/smoke.ps1
 ```
 
-Check each command's exit code before continuing if running them interactively.
-Pytest exercises health response contracts, missing/empty/wrong schema versions,
-shutdown disposal and secret-safe configuration. These tests use SQLite as a
-local fixture inside the test container; they do not replace PostgreSQL tests.
-
-The PowerShell smoke script runs against **real PostgreSQL 16**. It creates a
-fresh `ag-smoke-<random>` Compose project with its own password, volume and free
-loopback port, using the already built runtime image. It tests unmigrated DB,
-normal startup, repeat migration, wrong revision, DB outage with observed health
-timings, recovery without API restart, persistence after DB container replacement
-(read before migration), and worker SIGTERM with exit 0 and shutdown event.
-It removes only its own test project/volume, even on failure. Development data
-is retained. Results are written to ignored `reports/runtime/ag-smoke-*.json`.
-
-The workflow in `.github/workflows/runtime.yml` builds the images, runs pytest
-and the same smoke script on a Linux GitHub runner. A local test pass does not
-mean the remote workflow has run; this setup does not push or trigger CI.
-
-### Stop and restart without losing data
+PostgreSQL integration tests:
 
 ```powershell
-docker compose stop
-docker compose up -d
-# Remove development containers/network while keeping the named volume:
-docker compose down
-```
-
-Do not add `--volumes` to development teardown if you want to retain data.
-The worker is intentionally idle and waits for SIGTERM/SIGINT with low CPU use.
-Provider connectors, agent keys and `/v1/responses` belong to later steps.
-
-## Step 2: Source Registry and local fixture sync
-
-Rules and transaction boundaries: [docs/SOURCE_REGISTRY.md](docs/SOURCE_REGISTRY.md).
-The only connector in this step reads packaged fixture files. No GitHub,
-provider metadata endpoint or inference API is called.
-
-Create an operator credential only if `.env` does not already define one,
-without displaying its value. Keep this credential separate from future agent
-keys and provider secrets:
-
-```powershell
-if (-not (Select-String -Path .env -Pattern '^OPERATOR_API_KEY=' -Quiet)) {
-    $operatorKey = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
-    [IO.File]::AppendAllText((Join-Path $PWD '.env'), "`nOPERATOR_API_KEY=$operatorKey`n")
-}
-docker compose up --build -d
-```
-
-Migration advances existing baseline databases to `0002_source_registry` and
-idempotently seeds `fixture/catalog-a`. It preserves the development volume and
-never resets an existing source pointer or generation. If reusing the runtime
-setup snippet above, also run the operator credential snippet before admin API
-requests. Missing configuration disables admin access with 503; missing/wrong
-Bearer credentials return 401 when configured. Health stays public.
-
-Enqueue and poll from PowerShell (the generated `.env` uses unquoted hex keys):
-
-```powershell
-$operatorKey = $env:OPERATOR_API_KEY
-if (-not $operatorKey) {
-    $operatorKey = ((Get-Content .env | Where-Object { $_ -match '^OPERATOR_API_KEY=' }) -replace '^OPERATOR_API_KEY=', '').Trim()
-}
-$headers = @{ Authorization = "Bearer $operatorKey" }
-$baseUrl = 'http://127.0.0.1:8000' # use GATEWAY_PORT if changed
-$job = Invoke-RestMethod -Method Post -Uri "$baseUrl/admin/sources/fixture/catalog-a/sync" -Headers $headers -ContentType 'application/json' -Body '{"revision":"r1"}'
-do {
-    Start-Sleep -Milliseconds 300
-    $state = Invoke-RestMethod "$baseUrl/admin/jobs/$($job.job_id)" -Headers $headers
-} while ($state.status -in @('queued','running'))
-$state | ConvertTo-Json -Depth 8
-Invoke-RestMethod "$baseUrl/admin/offerings" -Headers $headers | ConvertTo-Json -Depth 8
-```
-
-Repeat with r1 for an empty added/removed diff, r2 for one added gamma/chat,
-and `last-page-timeout` for `failed/fixture_page_timeout`. In the last case,
-page 1 stages a different model, page 2 fails, and the published catalog stays
-unchanged. The worker logs job/source/run IDs for every staged page and result:
-
-```powershell
-docker compose logs --tail 40 agentic-gateway-worker
-```
-
-Authenticated endpoints:
-
-- `POST /admin/sources` with `{"id":"fixture/catalog-b","fixture_name":"catalog-b"}`
-  registers the second local fixture; registration is idempotent.
-- `GET /admin/sources` shows current snapshot pointers and source generations.
-- `POST /admin/sources/{id}/sync` accepts a fixture revision, returns 202/job_id.
-- `GET /admin/jobs/{id}` shows status, progress, run ID, error code and diff.
-- `GET /admin/sync-runs/{id}` shows the historical run and diff.
-- `GET /admin/offerings` lists current offerings and per-source evidence.
-  `inference_eligible` is always false at this stage.
-
-Run all tests against a fresh PostgreSQL 16 Compose project and volume:
-
-```powershell
-docker build --target test -t agentic-gateway:test .
 ./scripts/test-registry.ps1
+
+# Run a focused suite:
+./scripts/test-registry.ps1 -TestPath tests/integration/test_reports.py
 ```
 
-To run a phase independently, pass `-TestPath tests/integration/test_registry_a.py`
-(or `_b.py`, `_c.py`). PostgreSQL tests intentionally skip in a plain
-`docker run agentic-gateway:test`; the isolated runner supplies the dedicated
-database and guard flag. JUnit reports are written to ignored `reports/runtime/`.
-The runner removes only its own random project/volume. The race suite also starts
-two real worker processes and a real HTTP server inside the test container.
-No host Python is used. Source Registry tests are included in the local CI file;
-they have not been submitted to GitHub by this work.
+Integration tests skip without their dedicated database/guard flag. A plain `docker run` test pass does not cover the PostgreSQL suite.
 
-## Step 3C: NVIDIA and SiliconFlow China evidence
+Isolated end-to-end smoke checks, using built runtime/Portal images:
 
-See [docs/PROVIDER_EVIDENCE.md](docs/PROVIDER_EVIDENCE.md) for source locators,
-field-level matching rules, metadata-only probes and PowerShell trace commands.
-The new authenticated endpoint is `/admin/offerings/{offering_id}/evidence`.
-Live GitHub provenance is still missing in this checkout; the optional demo
-input is explicitly synthetic. Official provider observations never promote a
-community `free` label into verified price or quota, or grant inference access.
+```powershell
+docker build --target runtime -t agentic-gateway:dev .
+docker compose build agentic-gateway-portal
 
-## Step 3D: catalog administration and scheduled sync
+./scripts/smoke.ps1
+./scripts/smoke-catalog.ps1
+./scripts/smoke-portal.ps1
+```
 
-See [docs/CATALOG_OPERATIONS.md](docs/CATALOG_OPERATIONS.md) for the three
-operator read APIs, schedule configuration and PowerShell examples. The new
-`agentic-gateway-scheduler` service uses the runtime image and durable enqueue
-path; schedules remain opt-in per source. Latest attempts, last success,
-active snapshot and next schedule are separate fields. Run
-`./scripts/smoke-catalog.ps1` for an isolated HTTP/scheduler smoke with observed
-response examples and a failed run that preserves the prior catalog.
+The scripts create random Compose test projects and disposable databases, preserve the development volume and write results under ignored `reports/runtime/`. The Portal smoke exercises login, BFF/API access, fixture sync through the worker, evidence, report reads and access boundaries. It sends no live provider inference requests.
 
-## Step 4: deployment and single-send inference adapter
+GitHub Actions:
 
-[docs/INFERENCE_ADAPTER.md](docs/INFERENCE_ADAPTER.md) documents immutable
-deployment generations, the NVIDIA HTTPX adapter, explicit operator probe CLI,
-error/usage semantics and counted HTTPS fixture tests. A live probe requires a
-current officially confirmed offering and operator-supplied `NVIDIA_API_KEY`.
-No live deployment success is implied by passing offline tests.
+- [Runtime workflow](.github/workflows/runtime.yml): package/runtime checks, PostgreSQL integration and Compose smoke.
+- [Portal workflow](.github/workflows/portal.yml): frontend tests and production build.
 
-## Step 5: qualification and pinned model publication
+**Validation limits:** local frontend/build/HTTP checks do not prove live provider readiness, production scale or a passing remote CI run. A previous broad local PostgreSQL run recorded a failure in `test_heartbeat_keeps_lease_during_slow_page_reads`; its focused rerun also failed. Do not treat the complete backend regression as green until that lease/heartbeat check is resolved and rerun. Use the GitHub Actions run for the exact commit as CI evidence.
 
-[docs/QUALIFICATION.md](docs/QUALIFICATION.md) describes the versioned text
-profile, bounded worker probes, per-case evidence, live-only publication and
-compare-and-swap route snapshots. The same eligibility checks apply to route
-reads and rollback. Fixture success cannot publish a live route. Live execution
-requires both provider credentials and an explicit account budget.
+## Repository map and detailed documentation
 
-## Git workflow for this personal project
+- `src/agentic_gateway/catalog/`: source registry, snapshots, evidence views and durable sync.
+- `src/agentic_gateway/providers/`: catalog connectors and inference adapter/deployment services.
+- `src/agentic_gateway/qualification/`: policy runs, verdicts and pinned-route gates.
+- `src/agentic_gateway/portal/`: bounded operator read models and aggregate reports.
+- `src/agentic_gateway/migrations/`: packaged Alembic revisions.
+- `frontend/`: operational Portal/BFF; `demos/`: independent design previews.
+- `tests/`, `scripts/`: unit/integration tests and isolated smoke runners.
 
-- `main`: stable release branch.
-- `develop`: ongoing development and verified milestone commits.
+Further reading:
 
-Work on `develop`, run the container test suite and relevant Compose smoke
-checks, then commit and push. When ready to release, merge `develop` into `main`
-and optionally tag the release. No additional permanent branches are needed.
-Text files are stored as LF using `.gitattributes`. Local `.env`, generated
-reports, caches and fixture TLS keys are ignored. CI generates its own disposable
-TLS certificate in the Docker test target.
+- [Source Registry](docs/SOURCE_REGISTRY.md)
+- [Provider Evidence](docs/PROVIDER_EVIDENCE.md)
+- [Catalog Operations and Schedules](docs/CATALOG_OPERATIONS.md)
+- [Inference Adapter and Operator CLI](docs/INFERENCE_ADAPTER.md)
+- [Qualification and Pinned Routes](docs/QUALIFICATION.md)
+- [Portal setup, security and reports](docs/PORTAL.md)
+- [Pixel effects research and design decisions](docs/PIXEL_EFFECTS.md)
+
+## Git branches
+
+- `dev`: current active development, including the Portal and qualification implementation.
+- `develop`: earlier development baseline retained in the repository.
+- `main`: stable/release branch; the latest `dev` work is not implicitly released there.
+
+Commit reviewed source and validation evidence to `dev`; promote to the release branch through the repository's review process. Local `.env`, generated reports, caches, build output, node modules and fixture TLS private keys are ignored.
